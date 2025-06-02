@@ -53,7 +53,7 @@ def residual_subtraction(original_file, blend_file, vocal_output_file):
 
 
 
-def process_phase_cancel(original_file, blended_file, output_dir, base, threshold_db=-40):
+def process_phase_cancel(original_file, blended_file, output_dir, base):
     logger = get_logger()
     try:
         residual_vocal_path = output_dir / f"{base}_vocal.wav"
