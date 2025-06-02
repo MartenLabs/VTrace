@@ -1,10 +1,10 @@
 import numpy as np
 import soundfile as sf
 import librosa
-from utils.audio_utils import normalize_audio
+from audio_utils.alignment import align_audio, align_signals
+from audio_utils.loudness import match_target_loudness, peak_normalize
 
 def blend_audio_tracks(original_file, instrumental_file, output_file, blend_ratio=0.1, blend_mode='linear'):
-
     original, sr_orig = sf.read(original_file)
     instrumental, sr_inst = sf.read(instrumental_file)
 
@@ -12,22 +12,15 @@ def blend_audio_tracks(original_file, instrumental_file, output_file, blend_rati
     if sr_orig != target_sr:
         original = librosa.resample(original.T, orig_sr=sr_orig, target_sr=target_sr).T
         sr_orig = target_sr
-    
     if sr_inst != target_sr:
         instrumental = librosa.resample(instrumental.T, orig_sr=sr_inst, target_sr=target_sr).T
         sr_inst = target_sr
 
-    min_length = min(len(original), len(instrumental))
-    original = original[:min_length]
-    instrumental = instrumental[:min_length]
+    # 차원/채널 정리
+    original, instrumental = align_audio(original, instrumental)
 
-    if original.ndim == 1:
-        original = np.column_stack((original, original))
-    if instrumental.ndim == 1:
-        instrumental = np.column_stack((instrumental, instrumental))
-    if original.shape[1] != instrumental.shape[1]:
-        target_channels = original.shape[1]
-        instrumental = np.tile(instrumental[:, 0:1], (1, target_channels))
+    # (선택) 위상 정렬
+    instrumental, lag = align_signals(original, instrumental, max_shift=2000)
 
     # 블렌드 가중치 계산
     if blend_mode == 'linear':
@@ -44,14 +37,9 @@ def blend_audio_tracks(original_file, instrumental_file, output_file, blend_rati
 
     w_inst = 1 - w_orig
 
-
     blended = (original * w_orig) + (instrumental * w_inst)
-
-    max_val = np.max(np.abs(blended))
-    if max_val > 0.99:
-        blended = blended / (max_val * 1.01)
-
-    blended_norm = normalize_audio(blended)
-
-    sf.write(output_file, blended_norm, target_sr)
+    
+    blended = peak_normalize(blended, headroom_db=1.0)
+    blended = match_target_loudness(blended, original)
+    sf.write(output_file, blended, target_sr)
     return output_file
