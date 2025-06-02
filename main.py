@@ -93,7 +93,6 @@ def main():
     alpha = args.alpha if args.alpha is not None else config.get("default_alpha", 0.1)
     blend_mode = args.blend_mode if args.blend_mode else config.get("default_blend_mode", "linear")
     demucs_model = args.demucs_model if args.demucs_model else config.get("default_demucs_model", "htdemucs_ft")
-    threshold_db = args.threshold if args.threshold is not None else config.get("default_threshold", -40.0)
     thread_count = args.thread if args.thread is not None else config.get("max_threads", 2)
     enable_eval = args.eval or config.get("enable_evaluation", False)
 
