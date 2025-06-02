@@ -2,7 +2,7 @@ import numpy as np
 import soundfile as sf
 import librosa
 from audio_utils.alignment import align_audio, align_signals
-from audio_utils.loudness import match_target_loudness, peak_normalize
+from audio_utils.loudness import peak_normalize, simple_rms_match
 
 from logger import get_logger
 
@@ -36,12 +36,8 @@ def residual_subtraction(original_file, blend_file, vocal_output_file):
         residual = original - blend_aligned
 
         # 정규화 (클리핑)
-        max_val = np.max(np.abs(residual))
-        if max_val > 0.99:
-            residual = residual / (max_val * 1.01)
-        
-        residual = peak_normalize(residual, headroom_db=1.0)
-        residual = match_target_loudness(residual, original)
+        # residual = simple_rms_match(residual, original)
+        # residual = peak_normalize(residual)
         sf.write(vocal_output_file, residual, target_sr)
 
     except Exception as e:
@@ -83,13 +79,9 @@ def process_phase_cancel(original_file, blended_file, output_dir, base):
 
         # Phase Cancel 계산
         instrumental = original - residual_vocal
-        max_val = np.max(np.abs(instrumental))
-        if max_val > 0.99:
-            instrumental /= (max_val * 1.01)
-
-        # 음량 보정
-        instrumental = peak_normalize(instrumental, headroom_db=1.0)
-        instrumental = match_target_loudness(instrumental, original)
+        
+        # instrumental = simple_rms_match(instrumental, original)
+        # instrumental = peak_normalize(instrumental)
         return instrumental, target_sr
 
     except Exception as e:
