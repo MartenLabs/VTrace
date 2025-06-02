@@ -1,23 +1,11 @@
 import numpy as np
 
+def simple_rms_match(target_signal, reference_signal):
+    ref_rms = np.sqrt(np.mean(reference_signal**2)) + 1e-8
+    target_rms = np.sqrt(np.mean(target_signal**2)) + 1e-8
 
-def match_target_loudness(target_signal, reference_signal):
-    """
-    target_signal의 평균 dBFS를 reference_signal의 평균 dBFS에 맞춤
-    """
-    def rms_db(signal):
-        rms = np.sqrt(np.mean(signal**2)) + 1e-8
-        db = 20 * np.log10(rms)
-        return db
-
-    ref_db = rms_db(reference_signal)
-    target_db = rms_db(target_signal)
-
-    gain_db = ref_db - target_db
-    gain_linear = 10 ** (gain_db / 20)
-
-    return target_signal * gain_linear
-
+    scale = ref_rms / target_rms
+    return target_signal * scale
 
 
 def peak_normalize(signal, headroom_db=1.0):
