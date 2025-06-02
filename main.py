@@ -56,9 +56,8 @@ def process_file(filepath: Path, output_root: Path, alpha: float, blend_mode: st
         sf.write(str(raw_instrumental_path), instrumental_phase, target_sr)
         logger.info(f"Phase Cancel 원본 저장 완료: {raw_instrumental_path}")
 
-        norm_instrumental = peak_normalize(instrumental_phase)
         final_instrumental_path = song_output_dir / f"{base_clean}_instrumental_phase_cancel_norm.wav"
-        sf.write(str(final_instrumental_path), norm_instrumental, target_sr)
+        sf.write(str(final_instrumental_path), instrumental_phase, target_sr)
         logger.info(f"Phase Cancel 결과 저장 완료: {final_instrumental_path}")
 
         if cleanup:
@@ -86,7 +85,9 @@ def main():
     parser.add_argument("--blend-mode", type=str, help="Blend 방식 (linear, exp, log, power)")
     parser.add_argument("--demucs-model", type=str, help="Demucs 모델명")
     parser.add_argument("--cleanup", action="store_true", help="Demucs 분리 결과 폴더 삭제 여부")
+    parser.add_argument("--convert_to_mp3", action="store_true", help="wav to mp3 convert 여부")
     parser.add_argument("--eval", action="store_true", help="SDR/SIR/dBFS 평가 실행 여부")
+    
 
     args = parser.parse_args()
 
@@ -95,6 +96,7 @@ def main():
     demucs_model = args.demucs_model if args.demucs_model else config.get("default_demucs_model", "htdemucs_ft")
     thread_count = args.thread if args.thread is not None else config.get("max_threads", 2)
     enable_eval = args.eval or config.get("enable_evaluation", False)
+    mp3_convert = args.convert_to_mp3 or config.get("enable_evaluation", False)
 
     files = []
     output_root = None
