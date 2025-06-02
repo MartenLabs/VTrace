@@ -50,5 +50,4 @@ def align_signals(reference: np.ndarray, target: np.ndarray, max_shift=2000):
     elif lag < 0:
         aligned[lag:] = 0
     
-    print(f"🔧 Applied time shift: {lag} samples")
     return aligned, lag
