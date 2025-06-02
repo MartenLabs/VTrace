@@ -7,7 +7,6 @@ default_blend_mode: linear
 default_demucs_model: htdemucs_ft
 default_mode: default
 supported_extensions: wav, mp3, flac
-default_threshold: -40.0
 default_smooth_factor: 1.0
 max_threads: 4
 output_base: processed
