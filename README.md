@@ -1,7 +1,7 @@
 # VTrace: Phase-Driven Vocal Tuner
 
-**VTrace**는 AI 기반 보컬 제거 모델(Demucs 등)의 후처리 보조 도구로,  
-보컬 음량 조절 및 자연스러운 보컬 감쇠 처리를 지원한다.
+**VTrace**는 AI 기반 보컬 제거 모델(Demucs)의 후처리 보조 도구로,  
+보컬 음량 조절 및 자연스러운 보컬 감쇠 처리를 지원합니다.
 
 <br/>
 
@@ -11,16 +11,16 @@
 
 AI 보컬 제거 모델은 좋은 성능을 제공하지만
 
-- **보컬을 완전히 제거하면** 배경 악기(저음역대, 리버브, 공간계 악기)까지 손실될 수 있다.
+- **보컬을 완전히 제거하면** 배경 악기(저음역대, 리버브, 공간계 악기)까지 손실될 수 있습다.
     
-- **보컬 추출 결과는** 너무 건조하여, 실제 음원에서 들리는 자연스러운 공간감이 사라진다.
+- **보컬 추출 결과는** 너무 건조하여, 실제 음원에서 들리는 자연스러운 공간감이 사라집니다.
     
 
-> **Phase-Driven Vocal Tuner는 이러한 한계를 보완한다.**  
+> **Phase-Driven Vocal Tuner는 이러한 한계를 보완합니다.**  
 > AI 모델 출력에 부드러운 감쇠 처리를 추가해,  
-> 🔹 보컬 볼륨을 자연스럽게 줄이고,  
-> 🔹 배경 악기를 최대한 보존하며,  
-> 🔹 부드러운 보컬 추출까지 가능하다.
+> - 보컬 볼륨을 자연스럽게 줄이고,  
+> - 배경 악기를 최대한 보존하며,  
+> - 부드러운 보컬 추출까지 가능합니다.
 
 <br/>
 
@@ -29,16 +29,16 @@ AI 보컬 제거 모델은 좋은 성능을 제공하지만
 ### 기능
 
 - **보컬 감쇠 (Vocal Attenuation)**  
-    보컬 볼륨을 완전히 제거하지 않고 사용자가 원하는 만큼 감쇠할 수 있다.
+    보컬 볼륨을 완전히 제거하지 않고 사용자가 원하는 만큼 감쇠할 수 있습다.
     
 - **자연스러운 보컬 추출 (Smooth Extraction)**  
-    AI 모델의 결과물보다 자연스럽게 약간의 공간감과 함께 보컬을 추출한다.
+    AI 모델의 결과물보다 자연스럽게 약간의 공간감과 함께 보컬을 추출합니다.
     
 - **악기 보존 (Instrumental Preservation)**  
-    AI 모델에서 발생할 수 있는 배경 악기 손실을 최소화한다.
+    AI 모델에서 발생할 수 있는 배경 악기 손실을 최소화합니다.
     
 - **학습 데이터 생성**  
-    보컬 감쇠 처리 과정에서 생성된 **Residual Vocal**은 새로운 AI 학습 데이터로 재활용할 수 있다.
+    보컬 감쇠 처리 과정에서 생성된 **Residual Vocal**은 새로운 AI 학습 데이터로 재활용할 수 있습니다.
     
 <br/>
 
@@ -51,6 +51,123 @@ AI 보컬 제거 모델은 좋은 성능을 제공하지만
 |보컬 완전 제거|보컬 볼륨 조절 (부드럽게 줄이기)|
 |배경 손실 있음|배경 악기 보존|
 |깨짐/뭉개짐 가능성 있음|깨지지 않고 자연스러운 보컬 추출|
+
+<br/>
+<br/>
+<br/>
+
+---
+
+## 동작 원리
+
+**Phase-Driven Vocal Tuner**는 AI 모델로 분리된 무보컬(instrumental) 음원과 원본(original) 음원을 혼합(blend)하여, 보컬을 완전히 제거하지 않고 볼륨을 조절(attenuation)하는 후처리 방식입니다.
+또한, Residual Subtraction 및 Phase Cancel 기법을 통해 보컬 추출과 배경 복원까지 지원합니다.
+
+<br/>
+
+---
+
+### 핵심 아이디어
+
+* AI 분리 모델로 얻은 **Instrumental** 음원은 보컬이 제거되어 있으나, 일부 음질 손실(저음역대, 공간계 악기 등)이 발생할 수 있습니다.
+* 따라서 원본 음원의 보컬 성분을 \*\*감쇠(attenuate)\*\*하여 자연스러운 믹스를 만들어냅니다.
+* 동시에 **Residual Subtraction**을 통해 보컬 성분만 추출하고, 이를 활용해 **Phase Cancel** 방식으로 배경 복원도 수행합니다.
+
+<br/>
+
+---
+
+### 수식 표현
+
+#### 보컬 감쇠 (Blend)
+
+감쇠된 출력 음원 $B(t)$는 다음과 같이 계산됩니다:
+
+$$B(t) = \alpha \cdot O(t) + (1 - \alpha) \cdot I(t)$$
+
+* $O(t)$: 원본(original) 신호
+* $I(t)$: AI 모델에서 추출된 무보컬(instrumental) 신호
+* $\alpha$: 보컬 감쇠 비율 (0.0 \~ 1.0)
+
+$$\text{즉, } \alpha = 0.0 \text{이면 보컬 제거, } \alpha = 1.0 \text{이면 원본 유지}$$
+
+<br/>
+
+#### Residual Subtraction (보컬 추출)
+
+Residual Vocal은 다음과 같이 계산됩니다:
+
+$$V_{\text{residual}}(t) = O(t) - I(t)$$
+
+즉, 원본에서 무보컬을 빼면 보컬 성분만 남게 됩니다.
+
+<br/>
+
+#### Phase Cancel (배경 복원)
+
+Residual Vocal을 원본에서 다시 빼면 배경(Instrumental)이 복원됩니다:
+
+$$I_{\text{phase-cancel}}(t) = O(t) - V_{\text{residual}}(t)$$
+
+<br/>
+
+---
+
+### Blend Mode (가중치 계산 방식)
+
+* **Linear 모드**: $w = \alpha$
+* **Exp 모드**: $w = e^{-\alpha}$
+* **Log 모드**: $w = \log(1 + \alpha)$
+* **Power 모드**: $w = \alpha^{\gamma}$ (기본 $\gamma = 2$)
+
+다양한 가중치 계산 방식으로 감쇠 곡선을 유연하게 조절할 수 있습니다.
+
+<br/>
+
+---
+
+### 처리 흐름
+
+1. 원본과 무보컬 음원의 **샘플레이트** 및 **채널 수**를 일치시킴
+2. 선택한 **Blend 모드**에 따라 가중치 계산
+3. 두 음원을 합성:
+
+$$blended = (original \times w_{\text{orig}}) + (instrumental \times w_{\text{inst}})$$
+
+4. 클리핑 방지를 위해 **Amplitude Scaling**
+5. Residual Vocal 추출:
+
+$$residual = original - instrumental$$
+
+6. Phase Cancel (배경 복원):
+
+$$instrumental_{\text{phase-cancel}} = original - residual$$
+
+7. 최종 출력은 `.wav`로 저장 (Normalize 처리 포함)
+
+---
+
+<br/>
+
+### 처리 단계 요약
+
+| 처리 단계                | 역할               | 출력 파일 예시                 |
+| -------------------- | ---------------- | ------------------------ |
+| Blend (보컬 감쇠)        | 보컬 볼륨 조절 및 믹스 생성 | `*_blend_알파.wav`         |
+| Residual Subtraction | 보컬 성분 추출         | `*_vocal.wav`            |
+| Phase Cancel         | 배경 복원 (보컬 제거)    | `*_phase_cancel_raw.wav` |
+
+---
+
+### 정리
+
+**Phase-Driven Vocal Tuner**는
+
+* AI 분리 모델의 한계(보컬 제거 시 배경 손실)를 보완하고,
+* 보컬 음량 조절 및 추출 기능을 통해 자연스러운 믹스와 AI 학습용 데이터셋 생성을 지원합니다.
+
+
+---
 
 <br/>
 
@@ -76,63 +193,16 @@ VTrace 샘플 결과
 각 곡에 대해 Alpha(보컬 감쇠 파라미터)를 다르게 설정하여,  보컬 음량과 보컬 추출 결과를 측정한 결과.
 
 
-<br/>
-
-#### Song A: Alpha별 보컬 감쇠 결과
-
-| 버전                                       | 미리 듣기                                                                                                                                                                                                         |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Original**                             | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/GreenWeShared/GreenWeShared_original.wav" type="audio/wav">Your browser does not support the audio element.</audio>   |
-| **Alpha=0.5**                            | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/GreenWeShared/GreenWeShared_blend_0.5.wav" type="audio/wav">Your browser does not support the audio element.</audio>  |
-| **Alpha=0.25**                           | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/GreenWeShared/GreenWeShared_blend_0.25.wav" type="audio/wav">Your browser does not support the audio element.</audio> |
-| **Alpha=0.1**                            | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/GreenWeShared/GreenWeShared_blend_0.1.wav" type="audio/wav">Your browser does not support the audio element.</audio>  |
-| **Alpha=0.1 phase cancel vocal extract** | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/GreenWeShared/GreenWeShared_vocal.wav" type="audio/wav">Your browser does not support the audio element.</audio>      |
+[VTrace samples](https://martenlabs.github.io/posts/VTrace/)
 
 
 <br/>
-
-#### Song B: Alpha별 보컬 감쇠 결과
-
-| 버전             | 미리 듣기                                                                                                                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Original**   | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/EVER/EVER_origin.wav" type="audio/wav">Your browser does not support the audio element.</audio>          |
-| **Alpha=0.5**  | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/EVER/EVER_inst_blend_0.5.wav" type="audio/wav">Your browser does not support the audio element.</audio>  |
-| **Alpha=0.25** | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/EVER/EVER_inst_blend_0.25.wav" type="audio/wav">Your browser does not support the audio element.</audio> |
-| **Alpha=0.1**  | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/EVER/EVER_inst_blend_0.1.wav" type="audio/wav">Your browser does not support the audio element.</audio>  |
-| **Alpha=0.1 phase cancel vocal extract**      | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/EVER/EVER_Vocal.wav" type="audio/wav">Your browser does not support the audio element.</audio>           |
-
-
 <br/>
-
-#### Song C: Alpha별 보컬 감쇠 결과
-
-| 버전             | 미리 듣기                                                                                                                                                                                          |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Original**   | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/Miiro/Mirro_original.wav" type="audio/wav">Your browser does not support the audio element.</audio>    |
-| **Alpha=0.5**  | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/Miiro/Mirro_blend_0.5.wav" type="audio/wav">Your browser does not support the audio element.</audio>   |
-| **Alpha=0.25** | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/Miiro/Mirro_blend_0.25.wav" type="audio/wav">Your browser does not support the audio element.</audio>  |
-| **Alpha=0.1**  | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/Miiro/Mirro_blend_0.075.wav" type="audio/wav">Your browser does not support the audio element.</audio> |
-| **Alpha=0.1 phase cancel vocal extract**      | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/Miiro/Mirro_vocal.wav" type="audio/wav">Your browser does not support the audio element.</audio>       |
-
-
-<br/>
-
-#### Song D: Alpha별 보컬 감쇠 결과
-
-| 버전                                       | 미리 듣기                                                                                                                                                                                       |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Original**                             | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/HOWL/HOWL_original.wav" type="audio/wav">Your browser does not support the audio element.</audio>   |
-| **Alpha=0.5**                            | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/HOWL/HOWL_blend_0.5.wav" type="audio/wav">Your browser does not support the audio element.</audio>  |
-| **Alpha=0.25**                           | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/HOWL/HOWL_blend_0.25.wav" type="audio/wav">Your browser does not support the audio element.</audio> |
-| **Alpha=0.1**                            | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/HOWL/HOWL_blend_0.1.wav" type="audio/wav">Your browser does not support the audio element.</audio>  |
-| **Alpha=0.1 phase cancel vocal extract** | <audio controls> <source src="https://tera.dscloud.me:8080/Files/Project/VTrace/Samples/HOWL/HOWL_vocal.wav" type="audio/wav">Your browser does not support the audio element.</audio>      |
-
-
 <br/>
 
 ---
 
-## 📦 설치 방법
+## 설치 방법
 
 VTrace는 Conda 환경으로 제공됩니다. [Anaconda](https://www.anaconda.com/download), [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 
@@ -262,7 +332,7 @@ VTrace/
 ---
 ### 버전
 
-VTrace v0.1.0 (Dev)
+VTrace 0.1 (Dev)
 
 <br/>
 
@@ -301,9 +371,8 @@ VTrace v0.1.0 (Dev)
 MIT License © 2025 JUNHEE LEE
 
 
-| 라이브러리/모델      | 라이선스      | 출처                                                                                         |
+| 라이브러리/모델      | 라이선스      | 출처                                                                                   |
 | ------------- | --------- | ------------------------------------------------------------------------------------------ |
 | **Demucs**    | MIT       | [https://github.com/facebookresearch/demucs](https://github.com/facebookresearch/demucs)   |
-
 
 ---
