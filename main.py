@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import shutil
 import subprocess
 import soundfile as sf
-
 from processors.residual_subtraction import process_phase_cancel
 from processors.blend import blend_audio_tracks
 from audio_utils.loudness import peak_normalize
@@ -17,7 +16,7 @@ from logger import get_logger
 
 
 def process_file(filepath: Path, output_root: Path, alpha: float, blend_mode: str,
-                 demucs_model: str, cleanup: bool, threshold_db: float, enable_eval: bool):
+                 demucs_model: str, cleanup: bool, enable_eval: bool):
     logger = get_logger()
     base = filepath.stem
     song_output_dir = output_root / base
@@ -51,7 +50,6 @@ def process_file(filepath: Path, output_root: Path, alpha: float, blend_mode: st
             blended_file=str(blended_output),
             output_dir=song_output_dir,
             base=base_clean,
-            threshold_db=threshold_db
         )
 
         raw_instrumental_path = song_output_dir / f"{base_clean}_instrumental__phase_cancel_raw.wav"
@@ -87,7 +85,6 @@ def main():
     parser.add_argument("-T", "-t", "--thread", type=int, help="동시 처리할 스레드 개수")
     parser.add_argument("--blend-mode", type=str, help="Blend 방식 (linear, exp, log, power)")
     parser.add_argument("--demucs-model", type=str, help="Demucs 모델명")
-    parser.add_argument("--threshold", type=float, help="Noise Gate 임계값 (dB)")
     parser.add_argument("--cleanup", action="store_true", help="Demucs 분리 결과 폴더 삭제 여부")
     parser.add_argument("--eval", action="store_true", help="SDR/SIR/dBFS 평가 실행 여부")
 
@@ -137,7 +134,7 @@ def main():
 
     logger.info(f"🎧 총 {len(files)}개 파일 처리 시작 (alpha={alpha}, blend_mode={blend_mode}, threads={thread_count}, eval={enable_eval})...")
     with ThreadPoolExecutor(max_workers=thread_count) as executor:
-        futures = [executor.submit(process_file, f, output_root, alpha, blend_mode, demucs_model, args.cleanup, threshold_db, enable_eval) for f in files]
+        futures = [executor.submit(process_file, f, output_root, alpha, blend_mode, demucs_model, args.cleanup, enable_eval) for f in files]
         for f in as_completed(futures):
             pass
 
