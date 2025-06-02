@@ -334,7 +334,7 @@ VTrace/
 ---
 ### Version
 
-VTrace 0.1.0 (Dev)
+VTrace 0.1 (Dev)
 
 <br/>
 
