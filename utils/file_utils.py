@@ -1,5 +1,13 @@
 import regex as re
+import unicodedata
+from slugify import slugify
 
-def sanitize_filename(filename):
-    # 유니코드 범위 내에서 허용할 문자 그룹: 한글, 일본어, 기본 ASCII
-    return re.sub(r'[^\p{L}\p{N}\-_.]', '_', filename)
+def sanitize_filename(name, strict=False):
+    name = unicodedata.normalize('NFC', name)  # 한글 깨짐 방지
+    name = re.sub(r'[\\/*?:"<>|]', '_', name)
+    if strict:
+        name = slugify(name).replace("-", "_")
+    return name.strip()
+
+def sanitize_url(url):
+    return re.sub(r"\\", "", url.strip())
