@@ -9,5 +9,6 @@ default_mode: default
 supported_extensions: wav, mp3, flac
 default_smooth_factor: 1.0
 max_threads: 4
+convert_to_mp3: True
 output_base: processed
 enable_evaluation: False
