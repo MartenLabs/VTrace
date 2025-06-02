@@ -7,10 +7,10 @@ import soundfile as sf
 
 from processors.residual_subtraction import process_phase_cancel
 from processors.blend import blend_audio_tracks
-from utils.audio_utils import normalize_audio
-from utils.file_utils import sanitize_filename
+from audio_utils.loudness import peak_normalize
+from utils.file_utils import sanitize_filename, sanitize_url
 from utils.evaluation import evaluate_results
-from utils.youtube import youtube_download, sanitize_url
+from utils.youtube import youtube_download
 from config_loader import load_config
 from logger import get_logger
 
@@ -58,7 +58,7 @@ def process_file(filepath: Path, output_root: Path, alpha: float, blend_mode: st
         sf.write(str(raw_instrumental_path), instrumental_phase, target_sr)
         logger.info(f"Phase Cancel 원본 저장 완료: {raw_instrumental_path}")
 
-        norm_instrumental = normalize_audio(instrumental_phase)
+        norm_instrumental = peak_normalize(instrumental_phase)
         final_instrumental_path = song_output_dir / f"{base_clean}_instrumental_phase_cancel_norm.wav"
         sf.write(str(final_instrumental_path), norm_instrumental, target_sr)
         logger.info(f"Phase Cancel 결과 저장 완료: {final_instrumental_path}")
