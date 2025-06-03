@@ -1,82 +1,77 @@
 import numpy as np
 import soundfile as sf
+from pystoi import stoi
 from logger import get_logger
+import librosa
 
 def match_length(reference, estimated):
-    min_len = min(len(reference), len(estimated))
+    min_len = min(reference.shape[0], estimated.shape[0])
     return reference[:min_len], estimated[:min_len]
 
-def calculate_sdr(reference, estimated, eps=1e-8):
-    # SDR = 10 * log10 (||s_target||^2 / ||e_interf + e_artif||^2)
+def calculate_mse(reference, estimated):
     error = reference - estimated
-    sdr = 10 * np.log10(np.sum(reference ** 2) / (np.sum(error ** 2) + eps))
-    return sdr
+    return np.mean(error ** 2)
 
-def calculate_sir(reference, interference, eps=1e-8):
-    # SIR = 10 * log10 (||s_target||^2 / ||e_interf||^2)
-    sir = 10 * np.log10(np.sum(reference ** 2) / (np.sum(interference ** 2) + eps))
-    return sir
+def calculate_cosine_similarity(reference, estimated):
+    ref_norm = reference / (np.linalg.norm(reference) + 1e-8)
+    est_norm = estimated / (np.linalg.norm(estimated) + 1e-8)
+    return np.sum(ref_norm * est_norm)
 
-def evaluate_sdr_sir(reference_file, estimated_file, tag=""):
+def evaluate_reconstruction(original_file, vocal_file, instrumental_file, tag=""):
     logger = get_logger()
     try:
-        ref, sr_ref = sf.read(reference_file)
-        est, sr_est = sf.read(estimated_file)
+        # --- Load audio ---
+        original, sr_orig = sf.read(original_file)
+        vocal, sr_vocal = sf.read(vocal_file)
+        instrumental, sr_inst = sf.read(instrumental_file)
 
-        if ref.ndim == 1:
-            ref = ref[:, np.newaxis]
-        if est.ndim == 1:
-            est = est[:, np.newaxis]
-        if ref.shape[1] != est.shape[1]:
-            logger.warning(f"⚠️ 채널 불일치: {ref.shape[1]} vs {est.shape[1]} → 채널 맞춤")
-            est = np.tile(est[:, 0:1], (1, ref.shape[1]))
+        # --- Channel handling ---
+        for var_name, audio in zip(["original", "vocal", "instrumental"], [original, vocal, instrumental]):
+            if audio.ndim == 1:
+                logger.warning(f"⚠️ {var_name} is mono, converting to (N,1)")
+                audio = audio[:, np.newaxis]
 
-        if sr_ref != sr_est:
-            logger.warning(f"⚠️ 샘플레이트 불일치: {sr_ref} vs {sr_est} → 최소 sr 사용")
-            sr = min(sr_ref, sr_est)
-        else:
-            sr = sr_ref
-    
-        ref, est = match_length(ref, est)
+        min_sr = min(sr_orig, sr_vocal, sr_inst)
+        if sr_orig != min_sr:
+            original = librosa.resample(original.T, orig_sr=sr_orig, target_sr=min_sr).T
+        if sr_vocal != min_sr:
+            vocal = librosa.resample(vocal.T, orig_sr=sr_vocal, target_sr=min_sr).T
+        if sr_inst != min_sr:
+            instrumental = librosa.resample(instrumental.T, orig_sr=sr_inst, target_sr=min_sr).T
 
-        sdr = calculate_sdr(ref, est)
-        sir = calculate_sir(ref, ref - est)
+        # --- Length match ---
+        original, vocal = match_length(original, vocal)
+        original, instrumental = match_length(original, instrumental)
 
-        logger.info(f"📊 [{tag}] SDR: {sdr:.2f} dB, SIR: {sir:.2f} dB")
-        return {"SDR": sdr, "SIR": sir}
+        # --- Reconstruct ---
+        reconstructed = vocal + instrumental
+        original, reconstructed = match_length(original, reconstructed)
 
-    except Exception as e:
-        logger.exception(f"❌ 메트릭 계산 오류: {e}")
-        return None
+        # --- MSE, Cosine (채널별 평균) ---
+        mse = np.mean([calculate_mse(original[:, c], reconstructed[:, c]) for c in range(original.shape[1])])
+        cosine_sim = np.mean([calculate_cosine_similarity(original[:, c], reconstructed[:, c]) for c in range(original.shape[1])])
 
+        # --- STOI (모노 평균) ---
+        original_mono = np.mean(original, axis=1) if original.ndim == 2 else original
+        reconstructed_mono = np.mean(reconstructed, axis=1) if reconstructed.ndim == 2 else reconstructed
+        original_mono = np.squeeze(original_mono)
+        reconstructed_mono = np.squeeze(reconstructed_mono)
 
-def calculate_dbfs(signal, eps=1e-8):
-    rms = np.sqrt(np.mean(signal**2))
-    dbfs = 20 * np.log10(rms + eps)
-    return dbfs
+        try:
+            stoi_score = stoi(original_mono, reconstructed_mono, min_sr, extended=False)
+        except Exception as e:
+            logger.warning(f"⚠️ STOI 계산 실패: {e}")
+            stoi_score = None
 
-def evaluate_dbfs_change(reference_file, estimated_file, tag=""):
-    logger = get_logger()
-    try:
-        ref, sr_ref = sf.read(reference_file)
-        est, sr_est = sf.read(estimated_file)
+        # --- 로그 출력 ---
+        logger.info(f"📊 [{tag}] MSE: {mse:.6f}, Cosine: {cosine_sim:.4f}, STOI: {stoi_score if stoi_score is not None else 'N/A'}")
 
-        if ref.ndim == 1:
-            ref = ref[:, np.newaxis]
-        if est.ndim == 1:
-            est = est[:, np.newaxis]
-        if ref.shape[1] != est.shape[1]:
-            logger.warning(f"⚠️ 채널 불일치: {ref.shape[1]} vs {est.shape[1]} → 채널 맞춤")
-            est = np.tile(est[:, 0:1], (1, ref.shape[1]))
-
-        # dBFS 계산 (채널 평균)
-        dbfs_ref = np.mean([calculate_dbfs(ref[:, c]) for c in range(ref.shape[1])])
-        dbfs_est = np.mean([calculate_dbfs(est[:, c]) for c in range(est.shape[1])])
-        diff = dbfs_est - dbfs_ref
-
-        logger.info(f"📊 [dBFS] {tag} | Original: {dbfs_ref:.2f} dBFS | Estimated: {dbfs_est:.2f} dBFS | Change: {diff:.2f} dB")
-        return {"Original_dBFS": dbfs_ref, "Estimated_dBFS": dbfs_est, "Change_dB": diff}
+        return {
+            "MSE": mse,
+            "Cosine": cosine_sim,
+            "STOI": stoi_score
+        }
 
     except Exception as e:
-        logger.exception(f"❌ dBFS 계산 오류: {e}")
+        logger.exception(f"❌ 평가 메트릭 계산 오류: {e}")
         return None
