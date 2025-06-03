@@ -4,19 +4,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import shutil
 import subprocess
 import soundfile as sf
-from processors.residual_subtraction import process_phase_cancel
-from processors.blend import blend_audio_tracks
-from audio_utils.loudness import peak_normalize
+from processors.vtrace_core import blend_audio_tracks, residual_subtraction, process_phase_cancel
 from utils.file_utils import sanitize_filename, sanitize_url
 from utils.evaluation import evaluate_results
 from utils.youtube import youtube_download
+from audio_utils.audio_conversion import convert_wav_to_mp3
 from config_loader import load_config
 from logger import get_logger
-
-
+import librosa
 
 def process_file(filepath: Path, output_root: Path, alpha: float, blend_mode: str,
-                 demucs_model: str, cleanup: bool, enable_eval: bool):
+                 demucs_model: str, cleanup: bool, enable_eval: bool, mp3_convert: bool):
     logger = get_logger()
     base = filepath.stem
     song_output_dir = output_root / base
@@ -36,41 +34,68 @@ def process_file(filepath: Path, output_root: Path, alpha: float, blend_mode: st
         sep_dir = Path("separated") / demucs_model / base
         no_vocals_path = sep_dir / "no_vocals.wav"
         if not no_vocals_path.exists():
-            logger.warning(f"⚠️ {filepath.name} 분리 실패 (no_vocals 미생성)")
+            logger.warning(f"❌ {filepath.name} 분리 실패 (no_vocals 미생성)")
             return
 
-        blended_output = song_output_dir / f"{base}_instrumental_blended.wav"
-        blend_audio_tracks(str(filepath), str(no_vocals_path), str(blended_output), blend_ratio=alpha, blend_mode=blend_mode)
 
-        logger.info(f"🎶 phase cancel 처리 중...")
-        base_clean = sanitize_filename(base)
 
-        instrumental_phase, target_sr = process_phase_cancel(
-            original_file=str(filepath),
-            blended_file=str(blended_output),
-            output_dir=song_output_dir,
-            base=base_clean,
+        # --- 파일 읽기 ---
+        original_audio, sr_orig = sf.read(str(filepath))
+        instrumental_audio, sr_inst = sf.read(str(no_vocals_path))
+
+        # 샘플레이트 통일
+        sample_rate = min(sr_orig, sr_inst)
+        if sr_orig != sample_rate:
+            original_audio = librosa.resample(original_audio.T, orig_sr=sr_orig, target_sr=sample_rate).T
+        if sr_inst != sample_rate:
+            instrumental_audio = librosa.resample(instrumental_audio.T, orig_sr=sr_inst, target_sr=sample_rate).T
+
+        # --- Blend ---
+        blended_audio, sample_rate = blend_audio_tracks(
+            original_audio, instrumental_audio, sample_rate,
+            blend_ratio=alpha, blend_mode=blend_mode
         )
 
-        raw_instrumental_path = song_output_dir / f"{base_clean}_instrumental__phase_cancel_raw.wav"
-        sf.write(str(raw_instrumental_path), instrumental_phase, target_sr)
-        logger.info(f"Phase Cancel 원본 저장 완료: {raw_instrumental_path}")
+        # --- Residual Vocal ---
+        residual_vocal, sample_rate = residual_subtraction(original_audio, blended_audio, sample_rate)
 
-        final_instrumental_path = song_output_dir / f"{base_clean}_instrumental_phase_cancel_norm.wav"
-        sf.write(str(final_instrumental_path), instrumental_phase, target_sr)
-        logger.info(f"Phase Cancel 결과 저장 완료: {final_instrumental_path}")
+        # --- Phase Cancel Instrumental ---
+        instrumental_phase, sample_rate = process_phase_cancel(
+            original_audio, residual_vocal, sample_rate
+        )
 
-        if cleanup:
-            shutil.rmtree(sep_dir.parent, ignore_errors=True)
-            logger.info(f"🧹 {filepath.name} 분리 폴더 삭제 완료")
+        # --- 파일 저장 ---
+        base_clean = sanitize_filename(base)
+        blended_output = song_output_dir / f"{base_clean}_blended.wav"
+        vocal_output = song_output_dir / f"{base_clean}_vocal_residual.wav"
+        instrumental_output = song_output_dir / f"{base_clean}_instrumental_phase_cancel.wav"
 
-        logger.info(f"✅ 완료: {filepath.name}")
+        sf.write(str(blended_output), blended_audio, sample_rate)
+        sf.write(str(vocal_output), residual_vocal, sample_rate)
+        sf.write(str(instrumental_output), instrumental_phase, sample_rate)
+
+        logger.info(f"WAV 저장 완료: {blended_output}, {vocal_output}, {instrumental_output}")
+
+        # --- MP3 변환 (옵션) ---
+        if mp3_convert:
+            for wav_path in [blended_output, vocal_output, instrumental_output]:
+                mp3_path = convert_wav_to_mp3(str(wav_path))
+                if mp3_path:
+                    logger.info(f"MP3 변환 완료: {mp3_path}")
+                else:
+                    logger.warning(f"❌ MP3 변환 실패: {wav_path}")
 
         if enable_eval:
             evaluate_results(filepath, song_output_dir, base_clean, demucs_model, logger)
 
+        # --- Cleanup ---
+        if cleanup:
+            shutil.rmtree(sep_dir.parent, ignore_errors=True)
+            logger.info(f"🧹 {filepath.name} 분리 폴더 삭제 완료")
+
     except Exception as e:
         logger.exception(f"❌ 오류: {filepath.name} 처리 중 예외 발생: {e}")
+
 
 def main():
     config = load_config()
@@ -86,7 +111,7 @@ def main():
     parser.add_argument("--demucs-model", type=str, help="Demucs 모델명")
     parser.add_argument("--cleanup", action="store_true", help="Demucs 분리 결과 폴더 삭제 여부")
     parser.add_argument("--convert_to_mp3", action="store_true", help="wav to mp3 convert 여부")
-    parser.add_argument("--eval", action="store_true", help="SDR/SIR/dBFS 평가 실행 여부")
+    parser.add_argument("--eval", action="store_true", help="MSE, Cosine, STOI 기반의 복원 평가 실행 여부")
     
 
     args = parser.parse_args()
@@ -135,7 +160,7 @@ def main():
 
     logger.info(f"🎧 총 {len(files)}개 파일 처리 시작 (alpha={alpha}, blend_mode={blend_mode}, threads={thread_count}, eval={enable_eval})...")
     with ThreadPoolExecutor(max_workers=thread_count) as executor:
-        futures = [executor.submit(process_file, f, output_root, alpha, blend_mode, demucs_model, args.cleanup, enable_eval) for f in files]
+        futures = [executor.submit(process_file, f, output_root, alpha, blend_mode, demucs_model, args.cleanup, enable_eval, mp3_convert) for f in files]
         for f in as_completed(futures):
             pass
 
