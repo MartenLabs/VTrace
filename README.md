@@ -1,8 +1,16 @@
 
 # VTrace: Phase-Driven Vocal Tuner
 
-**VTrace** is a post-processing tool designed to complement AI-based vocal separation models (such as Demucs).
-It provides **vocal volume control** and **natural vocal attenuation** capabilities.
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+
+VTrace 0.5.0 (Dev)
+
+**VTrace is a post-processing tool specifically designed to work with the Demucs AI vocal separation model, offering vocal volume adjustment and natural vocal attenuation.**
+
+This pipeline is built around the output structure of Demucs (i.e., `vocals.wav` and `no_vocals.wav` inside the `separated/demucs_model_name` folder), enabling fully automated, phase-consistent vocal extraction.
+
+**Note:** VTrace is not directly compatible with other models like VR Arch, MDX-Net, or Spleeter. For these models, you must manually separate audio into `vocals` and `no_vocals` files and place them in the appropriate folder structure.
 
 <br/>
 
@@ -10,17 +18,18 @@ It provides **vocal volume control** and **natural vocal attenuation** capabilit
 
 ### Background
 
-While AI vocal separation models (like Demucs) offer excellent performance, they often have limitations:
+While AI vocal separation models provide impressive results, they often suffer from the following issues:
 
-* **Fully removing vocals** can result in the loss of background instruments, such as bass, reverb, and ambient sounds.
-* **Extracted vocals** can sound too dry, lacking the natural spatial feel heard in the original mix.
+- **Complete vocal removal** can also result in the loss of background instruments, such as low-frequency elements, reverbs, and spatial effects.
+- **Isolated vocals** often sound too dry, lacking the natural spatial feel present in the original track.
 
-> **Phase-Driven Vocal Tuner addresses these limitations.**
-> By applying smooth attenuation to the AI-generated outputs, VTrace allows you to:
->
-> * **Reduce vocal volume naturally** without fully removing it,
-> * **Preserve background instruments and effects**,
-> * **Extract smoother, more natural vocals** that retain spatial and tonal characteristics.
+<br/>
+
+> **By applying smooth attenuation to the AI model's output, VTrace enables:**
+> 
+> - Natural reduction of vocal volume,
+> - Maximum preservation of background instruments,
+> - And smooth, natural-sounding vocal extraction.
 
 <br/>
 
@@ -30,29 +39,28 @@ While AI vocal separation models (like Demucs) offer excellent performance, they
 ### Features
 
 - **Vocal Attenuation**  
-    Allows the user to adjust the vocal volume without completely removing it.
-    
-- **Smooth Vocal Extraction**  
-    Extracts vocals with a more natural sound and spatial impression than AI model outputs.
-    
+    Adjust the vocal volume without completely removing it, allowing users to control how much the vocals are reduced.
+
+- **Smooth Extraction**  
+    Extract vocals with a more natural sound and a subtle spatial feel, compared to raw AI model outputs.
+
 - **Instrumental Preservation**  
-    Minimizes the loss of background instruments that often occurs with AI models.
-    
+    Minimize background instrument loss that can occur with AI models.
+
 - **Training Data Generation**  
-    The **Residual Vocal** created during the attenuation process can be used to build new AI training datasets.
-    
+    The **Residual Vocal** generated during the attenuation process can be reused as new AI training data.
+
 <br/>
 
 ---
 
-### Key Differences
+### Key Highlights
 
-| Existing AI Model Output | With Phase-Driven Vocal Tuner |
+|AI Model Only|With VTrace|
 |---|---|
-| Vocal completely removed | Adjustable vocal volume (smooth attenuation) |
-| Background instrument loss | Preserves background instruments |
-| May result in harsh or distorted output | Smooth and natural vocal extraction |
-
+|Complete vocal removal|Adjustable vocal volume (smooth reduction)|
+|Background loss|Background instruments preserved|
+|Possible distortion/muddiness|Smooth, natural vocal extraction without distortion|
 
 <br/>
 <br/>
@@ -62,8 +70,8 @@ While AI vocal separation models (like Demucs) offer excellent performance, they
 
 ## How It Works
 
-**Phase-Driven Vocal Tuner** is a post-processing system that blends AI-separated instrumental audio with the original audio, allowing smooth vocal volume attenuation rather than complete removal.  
-It also supports vocal extraction and background restoration using **Residual Subtraction** and **Phase Cancel** techniques.
+**VTrace** is a post-processing method that blends the AI-separated instrumental track with the original track, allowing for controlled vocal attenuation instead of complete removal.  
+It also supports vocal extraction and background restoration through **Residual Subtraction** and **Phase Cancel** techniques.
 
 <br/>
 
@@ -71,43 +79,44 @@ It also supports vocal extraction and background restoration using **Residual Su
 
 ### Core Concepts
 
-* The **Instrumental** audio generated by AI separation models often lacks vocals but may also lose important low-frequency and ambient elements.
-* To preserve the natural sound, the original audio’s vocal component is **attenuated** and blended back into the instrumental track.
-* Simultaneously, **Residual Subtraction** is used to extract the vocal component, which can then be used for **Phase Cancel**-based background restoration.
+- The **Instrumental** output from the AI separation model often lacks vocals but can suffer from quality loss in low frequencies and spatial instruments.
+- VTrace attenuates the vocal components in the original track to create a more natural mix.
+- It also performs **Residual Subtraction** to isolate vocal elements, and **Phase Cancel** techniques to restore the background audio.
+
 
 <br/>
 
 ---
 
-### Mathematical Formulation
+### Mathematical Expressions
 
 #### Vocal Attenuation (Blend)
 
-The attenuated output signal $B(t)$ is computed as:
+The attenuated output $B(t)$ is calculated as:
 
 $$B(t) = \alpha \cdot O(t) + (1 - \alpha) \cdot I(t)$$
 
-* $O(t)$: Original audio signal
-* $I(t)$: AI-separated instrumental signal
-* $\alpha$: Vocal attenuation ratio (0.0 ~ 1.0)
+- $O(t)$: Original signal
+- $I(t)$: AI-extracted instrumental signal
+- $\alpha$: Vocal attenuation ratio (0.0 ~ 1.0)
 
-$$\text{That is, } \alpha = 0.0 \text{ means full vocal removal, } \alpha = 1.0 \text{ means keep the original.}$$
+$$\text{That is, } \alpha = 0.0 \text{ removes vocals completely, } \alpha = 1.0 \text{ retains the original.}$$
 
 <br/>
 
 #### Residual Subtraction (Vocal Extraction)
 
-The residual vocal is computed as:
+Residual Vocal is calculated as:
 
 $$V_{\text{residual}}(t) = O(t) - I(t)$$
 
-In other words, subtracting the instrumental from the original yields the vocal component.
+Subtracting the instrumental from the original leaves the vocal component.
 
 <br/>
 
 #### Phase Cancel (Background Restoration)
 
-Restoring the background instrumental by subtracting the residual vocal from the original:
+Subtracting the Residual Vocal from the original restores the background (Instrumental):
 
 $$I_{\text{phase-cancel}}(t) = O(t) - V_{\text{residual}}(t)$$
 
@@ -115,61 +124,50 @@ $$I_{\text{phase-cancel}}(t) = O(t) - V_{\text{residual}}(t)$$
 
 ---
 
-### Blend Modes (Weight Calculation)
+### Blend Mode (Weighting Functions)
 
-* **Linear Mode**: $w = \alpha$
-* **Exp Mode**: $w = e^{-\alpha}$
-* **Log Mode**: $w = \log(1 + \alpha)$
-* **Power Mode**: $w = \alpha^{\gamma}$ (default $\gamma = 2$)
+- **Linear Mode**: $w = \alpha$
+- **Exp Mode**: $w = e^{-\alpha}$
+- **Log Mode**: $w = \log(1 + \alpha)$
+- **Power Mode**: $w = \alpha^{\gamma}$ (default $\gamma = 2$)
 
-Different weighting modes allow flexible control over the attenuation curve.
+These modes allow flexible control over the attenuation curve.
 
 <br/>
 
 ---
 
-### Processing Pipeline
+### Processing Flow
 
-1. Align **sample rate** and **number of channels** between the original and instrumental audio.
-2. Compute blending weights according to the selected **Blend Mode**.
-3. Mix the two audio signals:
+1. Match the **sample rate** and **number of channels** between the original and instrumental tracks.
+2. Compute weights based on the selected **Blend Mode**.
+3. Mix the two audio tracks:
 
 $$blended = (original \times w_{\text{orig}}) + (instrumental \times w_{\text{inst}})$$
 
 4. Apply **Amplitude Scaling** to prevent clipping.
-5. Extract the Residual Vocal:
+5. Extract Residual Vocal:
 
 $$residual = original - instrumental$$
 
-6. Perform Phase Cancel for background restoration:
+6. Phase Cancel (Background Restoration):
 
 $$instrumental_{\text{phase-cancel}} = original - residual$$
 
-7. Save final outputs as `.wav` files (including normalization).
+7. Save the final output as `.wav` files (with normalization).
 
 ---
 
 <br/>
 
-### Processing Steps Overview
+### Processing Stages Summary
 
-| Step                  | Purpose                             | Output Example                  |
-| -------------------- | ----------------------------------- | ------------------------------ |
-| Blend (Vocal Attenuation) | Adjust vocal volume and create mix | `*_blend_alpha.wav`            |
-| Residual Subtraction  | Extract vocal component             | `*_vocal.wav`                   |
-| Phase Cancel          | Restore background (vocal removed)  | `*_phase_cancel_raw.wav`        |
+| Stage                   | Purpose                        | Example Output Files                |
+| ----------------------- | ----------------------------- | ---------------------------------- |
+| Blend (Vocal Attenuation)   | Adjust vocal volume, create mix | `*_blended.wav`                     |
+| Residual Subtraction     | Extract vocal components       | `*_vocal_residual.wav`              |
+| Phase Cancel             | Background restoration (vocal removal) | `*_phase_cancel.wav`      |
 
----
-
-### Summary
-
-**Phase-Driven Vocal Tuner**:
-
-* Compensates for the limitations of AI separation models (loss of background during vocal removal),
-* Supports natural mixing and AI training dataset generation through vocal volume adjustment and extraction capabilities.
-
-
----
 
 <br/>
 
@@ -243,20 +241,20 @@ python main.py -l <YouTube link> [options...]
 
 ---
 
-### Options
+### Main Options
 
-| Option                   | Description                                        | Default/Example                                 |
-| ------------------------ | -------------------------------------------------- | ----------------------------------------------- |
-| `-i`, `--input`          | Input file or folder path                          | `input/` or `song.wav`                          |
-| `-l`, `--link`           | YouTube link (downloads MP3 and processes it)       | `https://www.youtube.com/watch?v=xxxx`          |
-| `-o`, `--output`         | Output folder path (default: subfolder of input)    | `results/`                                      |
-| `-a`, `--alpha`          | Vocal attenuation ratio (0.0 ~ 1.0)                | `0.5` (default: `0.1`)                          |
-| `--blend-mode`           | Blend mode (`linear`, `exp`, `log`, `power`)       | `linear` (default: `linear`)                    |
-| `--demucs-model`         | Demucs model name (e.g., `htdemucs_ft`)            | `htdemucs_ft` (default: `htdemucs_ft`)          |
-| `--threshold`            | Noise Gate threshold (dB)                          | `-40` (default: `-40`)                          |
-| `-T`, `-t`, `--thread`   | Number of parallel threads                         | `2` (default: `2`)                              |
-| `--cleanup`              | Remove Demucs output folder after processing       | If specified, `True`                             |
-| `--eval`                 | Run SDR/SIR/dBFS evaluation                        | If specified, `True`                             |
+| Option                  | Description                                           | Default/Example                              |
+| ----------------------- | ---------------------------------------------------- | ------------------------------------------- |
+| `-i`, `--input`         | Path to input file or folder                         | `input/` or `song.wav`                       |
+| `-l`, `--link`          | YouTube link (downloads MP3 and processes)           | `https://www.youtube.com/watch?v=xxxx`       |
+| `-o`, `--output`        | Output folder path (defaults to subfolder of input)  | `results/`                                   |
+| `-a`, `--alpha`         | Vocal attenuation ratio (0.0 ~ 1.0)                  | `0.5` (default: `0.1`)                       |
+| `--blend-mode`          | Blend mode (`linear`, `exp`, `log`, `power`)         | `linear` (default: `linear`)                 |
+| `--demucs-model`        | Demucs model name (e.g., `htdemucs_ft`)              | `htdemucs_ft` (default: `htdemucs_ft`)       |
+| `-T`, `-t`, `--thread`  | Number of threads to process concurrently           | `2` (default: `2`)                           |
+| `--cleanup`             | Whether to delete Demucs output folders              | Set `True` to enable                         |
+| `--eval`                | Whether to run restoration evaluation (MSE, Cosine, STOI) | Set `True` to enable                     |
+| `--convert_to_mp3`      | Whether to convert output to MP3                      | Set `True` to enable                         |
 
 <br/>
 
@@ -264,22 +262,22 @@ python main.py -l <YouTube link> [options...]
 
 ### Example Commands
 
-Process entire folder (vocal attenuation 0.3, log blend mode):
+Process entire folder (70% vocal attenuation, log blend mode):
 
 ```bash
 python main.py -i songs/ -a 0.3 --blend-mode log
 ```
 
-Download and process a YouTube link (vocal attenuation 0.5):
+Download from YouTube and process (85% vocal attenuation):
 
 ```bash
-python main.py -l https://www.youtube.com/watch?v=xxxx -a 0.5
+python main.py -l https://www.youtube.com/watch?v=xxxx -a 0.15
 ```
 
-Adjust Noise Gate threshold and run evaluation:
+Process entire folder with MP3 conversion and evaluation enabled:
 
 ```bash
-python main.py -i songs/ --threshold -35 --eval
+python main.py -i songs/ --convert_to_mp3 --eval
 ```
 
 <br/>
@@ -305,28 +303,35 @@ Command-line options will override these values.
 
 ---
 
-### Project Structure
+### File Structure
 
-```txt
+``` txt
 VTrace/
-├── main.py                       # VTrace main entry point (CLI)
-├── config_loader.py              # Load config.yaml and manage parameters
+├── main.py                       # Main entry point for VTrace (CLI)
+├── config_loader.py              # Load and manage config.yaml parameters
 ├── logger.py                     # Logging setup and management
-├── VTrace.yaml                   # Conda environment configuration file
-├── config.yaml                   # Default settings (alpha, blend_mode, etc.)
+├── VTrace.yaml                   # Conda environment configuration (dependency management)
+├── config.yaml                   # VTrace default configuration (alpha, blend_mode, model, etc.)
 ├── README.md                     # Project documentation
-├── logs/                         # Log file directory
-├── processors/                   # Audio processing modules
-│   ├── blend.py                  # Blend function (original + separated)
-│   ├── residual_subtraction.py   # Residual Vocal extraction (Original - Blend)
-├── separated/                    # Demucs separation output directory
-├── utils/                        # Utility functions
-│   ├── audio_utils.py            # Audio utilities (Normalize, Noise Gate, etc.)
-│   ├── evaluate_metrics.py       # SDR, SIR, dBFS metric calculations
-│   ├── evaluation.py             # Evaluation pipeline
-│   ├── file_utils.py             # File and path utilities
-│   ├── youtube.py                # YouTube download module
-
+├── logs/                         # Directory for log files
+│
+├── processors/                   # Core VTrace processing modules
+│   ├── vtrace_core.py            # VTrace core functions (Residual Vocal, Phase Cancel, Blend)
+│
+├── separated/                    # Directory for Demucs separation outputs (vocals.wav, no_vocals.wav)
+│
+├── audio_utils/                  # Audio utility functions
+│   ├── alignment.py              # Audio phase and channel alignment (align_audio, align_signals)
+│   ├── audio_conversion.py       # WAV to MP3 conversion (convert_wav_to_mp3)
+│   ├── experimental.py           # Experimental functions (under development)
+│   ├── filters.py                # Noise gate and filter processing (includes test code)
+│   ├── loudness.py               # Gain adjustment functions (includes test code)
+│
+├── utils/                        # General utilities and evaluation modules
+│   ├── evaluate_metrics.py       # MSE, Cosine, STOI evaluation metrics
+│   ├── evaluation.py             # Evaluation pipeline management (results comparison, analysis)
+│   ├── file_utils.py             # File/path utilities (file names, paths, etc.)
+│   ├── youtube.py                # YouTube download module (yt_dlp integration)
 ```
 
 <br/>
@@ -334,7 +339,7 @@ VTrace/
 ---
 ### Version
 
-VTrace 0.1 (Dev)
+VTrace 0.5.0 (Dev)
 
 <br/>
 
@@ -342,9 +347,9 @@ VTrace 0.1 (Dev)
 
 ### Output Files
 
-* Vocal-attenuated audio (`*_blend_alpha.wav`, `*_phase_cancel_raw`, `*_phase_cancel_norm`)
-Extracted Residual Vocal (`*_vocal.wav`)
-(Optional) Evaluation results: SDR/SIR/dBFS logs
+- Vocal attenuation audio files (`*_blended.wav`, `*_instrumental_phase_cancel.wav`)
+- Extracted Residual Vocal (`*_vocal_residual.wav`)
+- (Optional) Evaluation results: MSE, Cosine, STOI
 
 <br/>
 
@@ -352,14 +357,14 @@ Extracted Residual Vocal (`*_vocal.wav`)
 
 ### Future Plans
 
-- **Post-processing Enhancements for Residual Vocal**  
-    (Denoising, timing alignment, etc.)
-    
-- **GUI Toolkit**  
-    Easy-to-use interface for vocal attenuation and output file generation.
-    
-- **Additional Attenuation Modes (Noise Gate, Smoothstep)**  
-    More refined and detailed attenuation options.
+- [x] **Add post-processing features to improve Residual Vocal quality**  
+      (e.g., timing alignment, etc.)
+
+- [ ] **Provide a GUI-based toolkit**  
+      Enable simple controls for vocal attenuation and output file generation
+
+- [ ] **Add Noise Gate and Smoothstep-based attenuation modes**  
+      Implement more precise attenuation effects
 
 <br/>
 
