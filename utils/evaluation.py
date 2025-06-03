@@ -1,37 +1,46 @@
-from utils.evaluate_metrics import evaluate_sdr_sir, evaluate_dbfs_change
+from utils.evaluate_metrics import evaluate_reconstruction
 from pathlib import Path
 
 def evaluate_results(filepath, song_output_dir, base_clean, demucs_model, logger):
     results = {}
 
-    output_vocal = song_output_dir / f"{base_clean}_vocal_normalized.wav"
-    output_instrumental = song_output_dir / f"{base_clean}_instrumental_phase_cancel_norm.wav"
+    # Phase Cancel 결과 파일
+    output_vocal = song_output_dir / f"{base_clean}_vocal_residual.wav"
+    output_instrumental = song_output_dir / f"{base_clean}_instrumental_phase_cancel.wav"
 
+    # Demucs 결과 파일
     demucs_dir = Path("separated") / demucs_model / base_clean
     demucs_vocal = demucs_dir / "vocals.wav"
     demucs_instrumental = demucs_dir / "no_vocals.wav"
 
-    if filepath.exists() and output_instrumental.exists():
-        pc_inst = evaluate_sdr_sir(str(filepath), str(output_instrumental), tag=f"{base_clean} - Instrumental vs Original")
-        results['Phase Cancel Instrumental'] = pc_inst
+    # Phase Cancel 평가 (Original vs Reconstructed)
+    if filepath.exists() and output_vocal.exists() and output_instrumental.exists():
+        pc_metrics = evaluate_reconstruction(
+            str(filepath),
+            str(output_vocal),
+            str(output_instrumental),
+            tag=f"{base_clean} - Phase Cancel Reconstruction"
+        )
+        results['Phase Cancel Reconstruction'] = pc_metrics
 
-    if filepath.exists() and output_vocal.exists():
-        pc_vocal = evaluate_sdr_sir(str(filepath), str(output_vocal), tag=f"{base_clean} - Vocal vs Original")
-        results['Phase Cancel Vocal'] = pc_vocal
+    # Demucs 평가 (Original vs Reconstructed)
+    if filepath.exists() and demucs_vocal.exists() and demucs_instrumental.exists():
+        demucs_metrics = evaluate_reconstruction(
+            str(filepath),
+            str(demucs_vocal),
+            str(demucs_instrumental),
+            tag=f"{base_clean} - Demucs Reconstruction"
+        )
+        results['Demucs Reconstruction'] = demucs_metrics
 
-    if filepath.exists() and output_vocal.exists():
-        evaluate_dbfs_change(str(filepath), str(output_vocal), tag=f"{base_clean} - Vocal dBFS Change")
+    # 비교 로그 출력
+    if 'Phase Cancel Reconstruction' in results and 'Demucs Reconstruction' in results:
+        pc = results['Phase Cancel Reconstruction']
+        demucs = results['Demucs Reconstruction']
+        logger.info(
+            f"🔍 [비교] MSE - Phase Cancel: {pc['MSE']:.6f} vs Demucs: {demucs['MSE']:.6f} | "
+            f"Cosine - Phase Cancel: {pc['Cosine']:.4f} vs Demucs: {demucs['Cosine']:.4f} | "
+            f"STOI - Phase Cancel: {pc['STOI']:.4f} vs Demucs: {demucs['STOI']:.4f}"
+        )
 
-    if filepath.exists() and demucs_instrumental.exists():
-        demucs_inst = evaluate_sdr_sir(str(filepath), str(demucs_instrumental), tag=f"{base_clean} - Demucs Instrumental vs Original")
-        results['Demucs Instrumental'] = demucs_inst
-
-    if filepath.exists() and demucs_vocal.exists():
-        demucs_vocal_res = evaluate_sdr_sir(str(filepath), str(demucs_vocal), tag=f"{base_clean} - Demucs Vocal vs Original")
-        results['Demucs Vocal'] = demucs_vocal_res
-
-    if all(k in results for k in ['Phase Cancel Instrumental', 'Demucs Instrumental']):
-        logger.info(f"🔍 [비교] Phase Cancel Instrumental SDR: {results['Phase Cancel Instrumental']['SDR']:.2f} dB vs Demucs Instrumental SDR: {results['Demucs Instrumental']['SDR']:.2f} dB")
-
-    if all(k in results for k in ['Phase Cancel Vocal', 'Demucs Vocal']):
-        logger.info(f"🔍 [비교] Phase Cancel Vocal SDR: {results['Phase Cancel Vocal']['SDR']:.2f} dB vs Demucs Vocal SDR: {results['Demucs Vocal']['SDR']:.2f} dB")
+    return results
