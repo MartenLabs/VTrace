@@ -1,6 +1,29 @@
+import librosa
 import numpy as np
-import subprocess
-import os
+
+# ⚠️ Noise Gate는 현재 음질 저하 문제로 사용 안 함
+# - smooth=True: 음원 거의 사라짐
+# - smooth=False: 중역대 먹먹함
+# - 추후 Spectral Gate 개선 필요
+
+
+# ⚠️ 증폭 및 Noise Gate는 실험 중. 신뢰성 낮음.
+
+def apply_gain(signal, gain_db=2.0):
+    gain_linear = 10 ** (gain_db / 20)
+    return signal * gain_linear
+
+
+def peak_normalize(signal, headroom_db=1.0):
+    """
+    신호의 최대 피크를 headroom dBFS 이내로 정규화
+    (예: headroom_db=1.0 이면 최대 피크 -1dBFS)
+    """
+    max_val = np.max(np.abs(signal)) + 1e-8
+    if max_val > 0:
+        target_linear = 10 ** (-headroom_db / 20)
+        return signal * (target_linear / max_val)
+    return signal
 
 
 def match_target_loudness(target_signal, reference_signal):
@@ -21,33 +44,37 @@ def match_target_loudness(target_signal, reference_signal):
     return target_signal * gain_linear
 
 
-def convert_wav_to_mp3(input_wav, output_mp3=None, sample_rate=44100, quality=0):
-    """
-    WAV 파일을 MP3로 변환 (FFmpeg 사용)
+def smoothstep(x):
+    return 3 * x**2 - 2 * x**3
+
+def noise_gate(signal, sr, threshold_db=-40, low_cut=300, high_cut=3000, smooth=False, gamma=1.0):
+    if signal.ndim == 1:
+        signal = signal[:, np.newaxis]
     
-    Args:
-        input_wav (str): 입력 WAV 파일 경로
-        output_mp3 (str): 출력 MP3 파일 경로 (없으면 자동 생성)
-        sample_rate (int): 샘플레이트 (default: 44100)
-        quality (int): 음질 (0=최고, 9=최저) (default: 0)
-    """
-    if not output_mp3:
-        base, _ = os.path.splitext(input_wav)
-        output_mp3 = f"{base}.mp3"
+    gated = np.zeros_like(signal)
+    threshold = 10 ** (threshold_db / 20)  # dB to linear
 
-    command = [
-        "ffmpeg", "-y",  # 덮어쓰기 허용
-        "-i", input_wav,
-        "-codec:a", "libmp3lame",
-        "-qscale:a", str(quality),
-        "-ar", str(sample_rate),
-        output_mp3
-    ]
+    for ch in range(signal.shape[1]):
+        stft_signal = librosa.stft(signal[:, ch])
+        magnitude, phase = np.abs(stft_signal), np.angle(stft_signal)
+        
+        freqs = librosa.fft_frequencies(sr=sr)
+        mask = (freqs >= low_cut) & (freqs <= high_cut)
 
-    try:
-        subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(f"✅ MP3 변환 완료: {output_mp3}")
-        return output_mp3
-    except subprocess.CalledProcessError as e:
-        print(f"❌ FFmpeg 변환 실패: {e.stderr.decode()}")
-        return None
+        if smooth:
+            max_mag = np.max(magnitude[mask, :])
+            norm_mag = (magnitude[mask, :] - threshold) / (max_mag - threshold + 1e-8)
+            norm_mag = np.clip(norm_mag, 0, 1)
+            attenuation = (3 * norm_mag**2 - 2 * norm_mag**3) ** gamma
+            magnitude[mask, :] *= attenuation
+        else:
+            magnitude[mask, :] = np.where(magnitude[mask, :] > threshold, magnitude[mask, :], 0)
+
+        gated_stft = magnitude * np.exp(1j * phase)
+        gated[:, ch] = librosa.istft(gated_stft, length=signal.shape[0])
+
+    max_val = np.max(np.abs(gated))
+    if max_val > 0.99:
+        gated = gated / (max_val * 1.01)
+
+    return gated
