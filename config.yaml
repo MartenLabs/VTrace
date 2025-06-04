@@ -2,13 +2,15 @@
 log_level: INFO
 log_dir: logs
 
-default_alpha: 0.1
+default_blend_alpha: 0.1
+default_vocal_alpha: 1.0
 default_blend_mode: linear
 default_demucs_model: htdemucs_ft
 default_mode: default
 supported_extensions: wav, mp3, flac
 default_smooth_factor: 1.0
-max_threads: 4
-convert_to_mp3: True
+max_threads: 1
+convert_mp3: True
 output_base: processed
+cleanup : False
 enable_evaluation: False
