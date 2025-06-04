@@ -371,7 +371,11 @@ VTrace 0.6.0 (Dev)
 - [x] **Add post-processing features to improve Residual Vocal quality**  
       (e.g., timing alignment, etc.)
 
- 
+ - [ ] **Optional Web-based GUI for Non-technical Users (Experimental)**
+      Provide a lightweight web interface using Gradio or Streamlit
+
+- [ ] **Add Noise Gate and Smoothstep-based attenuation modes**  
+      Implement more precise attenuation effects
 
 <br/>
 
