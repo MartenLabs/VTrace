@@ -60,7 +60,7 @@ def evaluate_reconstruction(original_file, vocal_file, instrumental_file, tag=""
         try:
             stoi_score = stoi(original_mono, reconstructed_mono, min_sr, extended=False)
         except Exception as e:
-            logger.warning(f"⚠️ STOI 계산 실패: {e}")
+            logger.warning(f"⚠️ Failed to compute STOI: {e}")
             stoi_score = None
 
         # --- 로그 출력 ---
@@ -73,5 +73,5 @@ def evaluate_reconstruction(original_file, vocal_file, instrumental_file, tag=""
         }
 
     except Exception as e:
-        logger.exception(f"❌ 평가 메트릭 계산 오류: {e}")
+        logger.exception(f"❌ Error occurred while calculating evaluation metrics: {e}")
         return None

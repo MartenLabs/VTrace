@@ -14,7 +14,7 @@ def get_logger(config_path="config.yaml"):
 
     # === config.yaml 로딩 ===
     if not os.path.exists(config_path):
-        raise FileNotFoundError(f"❌ 설정 파일을 찾을 수 없습니다: {config_path}")
+        raise FileNotFoundError(f"❌ Configuration file not found: {config_path}")
 
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)

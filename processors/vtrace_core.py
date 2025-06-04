@@ -30,7 +30,7 @@ def blend_audio_tracks(original_audio, instrumental_audio, blend_ratio: float = 
     elif blend_mode == 'power':
         w_orig = blend_ratio ** 2
     else:
-        raise ValueError(f"❌ 지원하지 않는 blend_mode: {blend_mode}")
+        raise ValueError(f"❌ Unsupported blend_mode: {blend_mode}")
 
     w_inst = 1.0 - w_orig
 
@@ -38,6 +38,7 @@ def blend_audio_tracks(original_audio, instrumental_audio, blend_ratio: float = 
     blended_audio = (original_audio * w_orig) + (instrumental_audio * w_inst)
 
     return blended_audio
+
 
 def generate_blends(original, instrumental, user_alpha, cancel_alpha, mode):
 

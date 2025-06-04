@@ -28,6 +28,6 @@ def convert_wav_to_mp3(input_wav, output_mp3=None, sample_rate=44100, quality=0)
         subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return output_mp3
     except subprocess.CalledProcessError as e:
-        print(f"❌ FFmpeg 변환 실패: {e.stderr.decode()}")
+        print(f"❌ FFmpeg conversion failed: {e.stderr.decode()}")
         return None
 
