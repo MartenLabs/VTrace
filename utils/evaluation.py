@@ -38,7 +38,7 @@ def evaluate_results(filepath, song_output_dir, base_clean, demucs_model, logger
         pc = results['Phase Cancel Reconstruction']
         demucs = results['Demucs Reconstruction']
         logger.info(
-            f"🔍 [비교] MSE - Phase Cancel: {pc['MSE']:.6f} vs Demucs: {demucs['MSE']:.6f} | "
+            f"[비교] MSE - Phase Cancel: {pc['MSE']:.6f} vs Demucs: {demucs['MSE']:.6f} | "
             f"Cosine - Phase Cancel: {pc['Cosine']:.4f} vs Demucs: {demucs['Cosine']:.4f} | "
             f"STOI - Phase Cancel: {pc['STOI']:.4f} vs Demucs: {demucs['STOI']:.4f}"
         )
