@@ -64,7 +64,7 @@ def evaluate_reconstruction(original_file, vocal_file, instrumental_file, tag=""
             stoi_score = None
 
         # --- 로그 출력 ---
-        logger.info(f"📊 [{tag}] MSE: {mse:.6f}, Cosine: {cosine_sim:.4f}, STOI: {stoi_score if stoi_score is not None else 'N/A'}")
+        logger.info(f"[{tag}] MSE: {mse:.6f}, Cosine: {cosine_sim:.4f}, STOI: {stoi_score if stoi_score is not None else 'N/A'}")
 
         return {
             "MSE": mse,
