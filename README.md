@@ -243,18 +243,20 @@ python main.py -l <YouTube link> [options...]
 
 ### Main Options
 
-| Option                  | Description                                           | Default/Example                              |
-| ----------------------- | ---------------------------------------------------- | ------------------------------------------- |
-| `-i`, `--input`         | Path to input file or folder                         | `input/` or `song.wav`                       |
-| `-l`, `--link`          | YouTube link (downloads MP3 and processes)           | `https://www.youtube.com/watch?v=xxxx`       |
-| `-o`, `--output`        | Output folder path (defaults to subfolder of input)  | `results/`                                   |
-| `-a`, `--alpha`         | Vocal attenuation ratio (0.0 ~ 1.0)                  | `0.5` (default: `0.1`)                       |
-| `--blend-mode`          | Blend mode (`linear`, `exp`, `log`, `power`)         | `linear` (default: `linear`)                 |
-| `--demucs-model`        | Demucs model name (e.g., `htdemucs_ft`)              | `htdemucs_ft` (default: `htdemucs_ft`)       |
-| `-T`, `-t`, `--thread`  | Number of threads to process concurrently           | `2` (default: `2`)                           |
-| `--cleanup`             | Whether to delete Demucs output folders              | Set `True` to enable                         |
-| `--eval`                | Whether to run restoration evaluation (MSE, Cosine, STOI) | Set `True` to enable                     |
-| `--convert_to_mp3`      | Whether to convert output to MP3                      | Set `True` to enable                         |
+| Option                  | Description                                                   | Default/Example                              |
+| ----------------------- | ------------------------------------------------------------- | ------------------------------------------- |
+| `-i`, `--input`         | Path to input file or folder                                  | `input/` or `song.wav`                       |
+| `-l`, `--link`          | YouTube link (downloads MP3 and processes)                    | `https://www.youtube.com/watch?v=xxxx`       |
+| `-o`, `--output`        | Output folder path (defaults to subfolder of input)           | `results/`                                   |
+| `-a`, `--alpha`         | Vocal attenuation ratio (0.0 ~ 1.0)                           | `0.5` (default: `0.1`)                       |
+| `--blend-mode`          | Blend mode (`linear`, `exp`, `log`, `power`)                  | `linear` (default: `linear`)                 |
+| `--demucs-model`        | Demucs model name (e.g., `htdemucs_ft`)                       | `htdemucs_ft` (default: `htdemucs_ft`)       |
+| `--device`              | Processing device (`cpu`, `cuda`, `mps`)                      | Auto-detected (default based on system)      |
+| `-T`, `-t`, `--thread`  | Number of parallel **processes** to handle multiple files      | `1` (default: `1`) |
+| `--cleanup`             | Whether to delete Demucs output folders                       | Set `True` to enable                         |
+| `--eval`                | Run restoration evaluation (MSE, Cosine, STOI)                | Set `True` to enable                         |
+| `--convert_to_mp3`      | Whether to convert output to MP3                              | Set `True` to enable                         |
+
 
 <br/>
 
@@ -280,6 +282,11 @@ Process entire folder with MP3 conversion and evaluation enabled:
 python main.py -i songs/ --convert_to_mp3 --eval
 ```
 
+Process all songs in the entire folder using 8 parallel workers, with custom blend settings, evaluation metrics enabled, MP3 conversion, and GPU acceleration (MPS for Apple Silicon):
+
+``` bash
+python main.py -i songs/ -o output/ -t 8 -ba 0.1 -va 1 --cleanup --convert_mp3 --eval --device mps
+```
 <br/>
 
 ---
@@ -360,8 +367,8 @@ VTrace 0.5.0 (Dev)
 - [x] **Add post-processing features to improve Residual Vocal quality**  
       (e.g., timing alignment, etc.)
 
-- [ ] **Provide a GUI-based toolkit**  
-      Enable simple controls for vocal attenuation and output file generation
+- [ ] **Optional Web-based GUI for Non-technical Users (Experimental)**
+      Provide a lightweight web interface using Gradio or Streamlit
 
 - [ ] **Add Noise Gate and Smoothstep-based attenuation modes**  
       Implement more precise attenuation effects
