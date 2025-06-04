@@ -4,7 +4,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 
-VTrace 0.5.0 (Dev)
+VTrace 0.6.0 (Dev)
 
 **VTrace is a post-processing tool specifically designed to work with the Demucs AI vocal separation model, offering vocal volume adjustment and natural vocal attenuation.**
 
@@ -346,7 +346,7 @@ VTrace/
 ---
 ### Version
 
-VTrace 0.5.0 (Dev)
+VTrace 0.6.0 (Dev)
 
 <br/>
 
