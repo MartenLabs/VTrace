@@ -61,6 +61,7 @@ def process_file(filepath: Path, output_root: Path, blend_alpha: float, voice_al
             original_audio, instrumental_audio, 
             user_alpha=blend_alpha, cancel_alpha = voice_alpha, mode=blend_mode
         )
+
         # --- Residual Vocal ---
         residual_vocal = residual_subtraction(
             original_audio, blend_for_cancel
@@ -127,7 +128,7 @@ def main():
     )
     parser.add_argument(
         "-va", "--voice_alpha", type=float,
-        help="Blend ratio for residual vocal extraction (0 to 1). Lower values emphasize vocals. "
+        help="Blend ratio for residual vocal extraction (0.0 to 3.0). Lower values emphasize vocals. "
              "Too low may cause distortion."
     )
 
@@ -164,7 +165,7 @@ def main():
     args = parser.parse_args()
 
     blend_alpha = args.blend_alpha if args.blend_alpha is not None else config.get("default_blend_alpha", 0.1)
-    vocal_alpha = args.voice_alpha if args.voice_alpha is not None else config.get("default_vocal_alpha", 1.0)
+    vocal_alpha = args.voice_alpha if args.voice_alpha is not None else config.get("default_vocal_alpha", 3.0)
 
     blend_mode = args.blend_mode if args.blend_mode else config.get("default_blend_mode", "linear")
     demucs_model = args.demucs_model if args.demucs_model else config.get("default_demucs_model", "htdemucs_ft")
