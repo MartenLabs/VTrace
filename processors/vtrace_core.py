@@ -46,7 +46,7 @@ def generate_blends(original, instrumental, user_alpha, cancel_alpha, mode):
         original, instrumental, blend_ratio=user_alpha, blend_mode=mode
     )
     blend_for_cancel = blend_audio_tracks(
-        original, instrumental, blend_ratio=np.clip(cancel_alpha / 10.0, 0.0, 0.1), blend_mode=mode
+        original, instrumental, blend_ratio=np.clip(cancel_alpha / 10.0, 0.0, 0.3), blend_mode=mode
     )
     return blend_for_output, blend_for_cancel
 
