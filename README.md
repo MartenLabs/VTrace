@@ -249,7 +249,7 @@ python main.py -l <YouTube link> [options...]
 | `-l`, `--link`          | YouTube link (downloads MP3 and processes)                    | `https://www.youtube.com/watch?v=xxxx`       |
 | `-o`, `--output`        | Output folder path (defaults to subfolder of input)           | `results/`                                   |
 | `-ba`, `--blend_alpha` | Blend ratio for final output (0.0 \~ 1.0). Lower values attenuate vocals more and emphasize instrumentals. Extremely low values may degrade audio quality. | `0.1` (default)     |
-| `-va`, `--voice_alpha` | Blend ratio for residual vocal extraction (0.0 \~ 1.0). Lower values emphasize vocals. Too low may cause distortion.                                       | `1.0` (recommended) |
+| `-va`, `--voice_alpha` | Blend ratio for residual vocal extraction (0.0 \~ 3.0). Lower values emphasize vocals. Too low may cause distortion.                                       | `3.0` (recommended) |
 | `--blend-mode`          | Blend mode (`linear`, `exp`, `log`, `power`)                  | `linear` (default: `linear`)                 |
 | `--demucs-model`        | Demucs model name (e.g., `htdemucs_ft`)                       | `htdemucs_ft` (default: `htdemucs_ft`)       |
 | `--device`              | Processing device (`cpu`, `cuda`, `mps`)                      | Auto-detected (default based on system)      |
