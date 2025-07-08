@@ -5,8 +5,6 @@ from logging.handlers import TimedRotatingFileHandler
 
 _logger_instance = None
 
-from logging.handlers import TimedRotatingFileHandler
-
 def get_logger(config_path="config.yaml"):
     global _logger_instance
     if _logger_instance is not None:
