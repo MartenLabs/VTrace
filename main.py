@@ -194,7 +194,8 @@ def main():
 
     blend_mode = args.blend_mode if args.blend_mode else config.get("default_blend_mode", "linear")
     demucs_model = args.demucs_model if args.demucs_model else config.get("default_demucs_model", "htdemucs_ft")
-    thread_count = args.thread if args.thread is not None else config.get("max_threads", 1)
+    # thread_count = args.thread if args.thread is not None else config.get("max_threads", 1)
+    thread_count = 1
     convert_mp3 = args.convert_mp3 or config.get("convert_mp3", False)
     enable_eval = args.eval or config.get("enable_evaluation", False)
     enable_cleanup = args.cleanup or config.get("cleanup", False)
@@ -241,7 +242,7 @@ def main():
         f" - vocal_alpha = {vocal_alpha}\n"
         f" - blend_mode = {blend_mode}\n"
         f" - device = {device}\n"
-        f" - threads = {thread_count}\n"
+        # f" - threads = {thread_count}\n"
         f" - mp3_convert = {convert_mp3}\n"
     )
     
