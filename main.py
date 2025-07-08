@@ -1,22 +1,28 @@
-import argparse
-from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
+import torch
 import shutil
+import librosa
+import argparse
 import subprocess
 import soundfile as sf
-from processors.vtrace_core import generate_blends, residual_subtraction, process_phase_cancel
-from utils.file_utils import sanitize_filename, sanitize_url
-from utils.evaluation import evaluate_results
-from utils.youtube import youtube_download
-from audio_utils.audio_conversion import convert_wav_to_mp3
-from config_loader import load_config
+from pathlib import Path
 from logger import get_logger
-import librosa
-import torch
-import argparse
+from slugify import slugify
+from multiprocessing import Manager
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from utils.progress import run_demucs_track_as_single_bar
+from utils.youtube import youtube_download
+from utils.evaluation import evaluate_results
+from audio_utils.audio_conversion import convert_wav_to_mp3
+from utils.file_utils import sanitize_filename, sanitize_url
+from processors.vtrace_core import generate_blends, residual_subtraction, process_phase_cancel
+from audio_utils.experimental import peak_normalize, soft_noise_gate
+from config_loader import load_config
+# from demucs import separate, __main__
 
 def process_file(filepath: Path, output_root: Path, blend_alpha: float, voice_alpha: float, blend_mode: str,
-                 demucs_model: str, device: str, cleanup: bool, enable_eval: bool, mp3_convert: bool):
+                 demucs_model: str, device: str, cleanup: bool, enable_eval: bool, mp3_convert: bool, save_lock=None):
+    
     logger = get_logger()
     base = filepath.stem
     song_output_dir = output_root / base
@@ -24,26 +30,37 @@ def process_file(filepath: Path, output_root: Path, blend_alpha: float, voice_al
 
     try:
         logger.info(f"🎶 Separating with Demucs: {filepath.name}")
+        
+        # 1. Sanitize filename and copy to temp
+        safe_base = slugify(base)
+        if safe_base == base:  # 동일하면 접미사 추가
+            safe_base = f"{safe_base}_temp"
+        safe_path = filepath.with_name(f"{safe_base}{filepath.suffix}")
+        shutil.copy(filepath, safe_path)
 
-        result = subprocess.run(
-            [
-                "demucs",
-                "--two-stems=vocals",
-                "-n", demucs_model,
-                "--device", f'{device}',
-                str(filepath)
-            ]
-        )
+        # 2. Run Demucs with tqdm progress
+        run_demucs_track_as_single_bar(filepath, safe_path, demucs_model, device)
 
-        if result.returncode != 0:
-            logger.error(f"❌ Demucs execution failed")
-            return
-
-        sep_dir = Path("separated") / demucs_model / base
+        # 3. Check expected output path
+        sep_root = Path("separated") / demucs_model
+        sep_dir = sep_root / safe_base
         no_vocals_path = sep_dir / "no_vocals.wav"
+        logger.debug(f"🔍 Expected Demucs output dir: {sep_dir}")
+
+        # 4. If output not found, fallback: search with glob
         if not no_vocals_path.exists():
-            logger.warning(f"❌ Separation failed for {filepath.name} (no_vocals not generated)")
-            return
+            logger.warning(f"⚠️ Expected output not found at: {no_vocals_path}")
+            candidates = list(sep_root.glob("*/no_vocals.wav"))
+            if candidates:
+                sep_dir = candidates[0].parent
+                no_vocals_path = candidates[0]
+                logger.info(f"🔄 Fallback matched Demucs output at: {sep_dir}")
+            else:
+                logger.error(f"❌ Separation failed: no_vocals.wav not found anywhere in {sep_root}")
+                return
+
+        logger.info(f"✅ Separation completed: {filepath.name} → {sep_dir}")
+
 
         # --- 파일 읽기 ---
         original_audio, sr_orig = sf.read(str(filepath))
@@ -63,33 +80,35 @@ def process_file(filepath: Path, output_root: Path, blend_alpha: float, voice_al
         )
 
         # --- Residual Vocal ---
-        residual_vocal = residual_subtraction(
-            original_audio, blend_for_cancel
-        )
-
+        residual_vocal = residual_subtraction(original_audio, blend_for_cancel)
+        
         # --- Phase Cancel Instrumental ---
-        instrumental_phase = process_phase_cancel(
-            original_audio, residual_vocal
-        )
+        instrumental_phase = process_phase_cancel(original_audio, residual_vocal)
 
-        # --- 파일 저장 ---
-        base_clean = sanitize_filename(base)
-        blended_output = song_output_dir / f"{base_clean}_blended.wav"
-        vocal_output = song_output_dir / f"{base_clean}_vocal_residual.wav"
-        instrumental_output = song_output_dir / f"{base_clean}_instrumental_phase_cancel.wav"
+        # --- WAV 저장 (lock 보호) ---
+        with save_lock:
+            base_clean = sanitize_filename(base, strict=True)
+            blended_output = song_output_dir / f"{base_clean}_blended.wav"
+            vocal_output = song_output_dir / f"{base_clean}_vocal_residual.wav"
+            instrumental_output = song_output_dir / f"{base_clean}_instrumental_phase_cancel.wav"
 
-        sf.write(str(blended_output), blend_for_output, sample_rate)
-        sf.write(str(vocal_output), residual_vocal, sample_rate)
-        sf.write(str(instrumental_output), instrumental_phase, sample_rate)
+            sf.write(str(blended_output), blend_for_output, sample_rate)
+            sf.write(str(vocal_output), residual_vocal, sample_rate)
+            sf.write(str(instrumental_output), instrumental_phase, sample_rate)
 
-        logger.info(f"WAV files saved: {blended_output}, {vocal_output}, {instrumental_output}")
+            logger.info(f"WAV files saved: {blended_output}, {vocal_output}, {instrumental_output}")
 
-        # --- MP3 변환 (옵션) ---
+        # --- MP3 변환 및 WAV 삭제 ---
         if mp3_convert:
             for wav_path in [blended_output, vocal_output, instrumental_output]:
                 mp3_path = convert_wav_to_mp3(str(wav_path))
                 if mp3_path:
                     logger.info(f"MP3 conversion completed: {mp3_path}")
+                    try:
+                        os.remove(wav_path)
+                        logger.info(f"🧹 WAV deleted: {wav_path}")
+                    except Exception as e:
+                        logger.warning(f"❌ Failed to delete WAV: {wav_path} ({e})")
                 else:
                     logger.warning(f"❌ MP3 conversion failed: {wav_path}")
 
@@ -105,9 +124,17 @@ def process_file(filepath: Path, output_root: Path, blend_alpha: float, voice_al
         logger.exception(f"❌ Exception occurred while processing {filepath.name}: {e}")
 
 
+    finally:
+        if safe_path.exists():
+            safe_path.unlink()
+            logger.debug(f"🧹 Temp file deleted: {safe_path}")
+
 def main():
     config = load_config()
     logger = get_logger()
+
+    manager = Manager()
+    save_lock = manager.Lock()
 
     if torch.cuda.is_available():
         default_device = "cuda"
@@ -120,7 +147,6 @@ def main():
     parser.add_argument("-i", "--input", type=str, help="Path to input file or folder")
     parser.add_argument("-l", "--link", type=str, help="YouTube link (downloads MP3 and processes it)")
     parser.add_argument("-o", "--output", type=str, help="Path to output folder (defaults to subfolder of input)")
-
     parser.add_argument(
         "-ba", "--blend_alpha", type=float,
         help="Blend ratio for final output (0 to 1). Lower values attenuate vocals more and emphasize instrumentals. "
@@ -131,7 +157,6 @@ def main():
         help="Blend ratio for residual vocal extraction (0.0 to 3.0). Lower values emphasize vocals. "
              "Too low may cause distortion."
     )
-
     parser.add_argument(
         "-T", "-t", "--thread", type=int,
         help="Number of processes to run concurrently"
@@ -226,9 +251,8 @@ def main():
                 process_file, f, output_root,
                 blend_alpha, vocal_alpha, blend_mode,
                 demucs_model, device,
-                enable_cleanup, enable_eval, convert_mp3
-            )
-            for f in files
+                enable_cleanup, enable_eval, convert_mp3, save_lock
+            )for f in files
         ]
         for f in as_completed(futures):
             pass
